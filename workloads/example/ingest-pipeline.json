@@ -1,0 +1,17 @@
+{
+  "description": "This pipeline processes student data",
+  "processors": [
+        {
+            "sparse_encoding": {
+                "model_id": "OnE4RJsBAN0ofVupESjt",
+                "field_map": {
+                    "passage": "passage_embedding"
+                },
+                "batch_size": 10
+            },
+            "remove": {
+                "field": "passage"
+            }
+        }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+    "_source": false,
+    "query": {
+        "neural_sparse": {
+            "passage_embedding": {
+                "query_tokens": {{embedding}},
+                "method_parameters": {
+                    "top_n": 3,
+                    "heap_factor": 1.2,
+                    "k": 10
+                }
+            }
+        }
+    },
+    "size": 10
+}

@@ -1,0 +1,5 @@
+{
+    "transient" : {
+        "plugins.neural_search.sparse.algo_param.index_thread_qty" : 8
+    }    
+}

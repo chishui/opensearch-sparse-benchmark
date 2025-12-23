@@ -1,0 +1,14 @@
+parameters:
+  index: test-index
+  ingest-pipeline: ingest-pipeline
+tasks:
+  - name: create-index
+    payload: index.json
+    delete: true
+  - name: request
+    tag: refresh-index
+    type: request
+    method: POST
+    url: /{{index}}/_refresh
+  - name: ingest
+    script: generator.py

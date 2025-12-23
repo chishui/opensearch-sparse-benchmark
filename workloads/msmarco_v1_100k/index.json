@@ -1,0 +1,25 @@
+{
+  "settings": {
+      "index": {
+          "sparse": true,
+          "number_of_shards": 1,
+          "number_of_replicas": 0
+      }
+  },
+  "mappings": {
+    "properties": {
+      "passage_embedding":{
+          "type": "sparse_vector",
+          "method": {
+              "name": "seismic",
+                    "parameters": {
+                        "n_postings": 160,
+                        "cluster_ratio": 0.1,
+                        "summary_prune_ratio": 0.4,
+                        "approximate_threshold": 90000
+                    }
+          }
+      }
+    }
+  }
+}

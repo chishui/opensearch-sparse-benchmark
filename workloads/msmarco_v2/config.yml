@@ -1,0 +1,12 @@
+parameters:
+  index: test-index
+  ingest-pipeline: ingest-pipeline
+tasks:
+  - name: create-index
+    payload: index.json
+    delete: true
+  - name: create-ingest-pipeline
+    payload: ingest-pipeline.json
+    parameters:
+  - name: ingest
+    script: generator.py
