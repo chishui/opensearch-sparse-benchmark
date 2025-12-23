@@ -270,28 +270,28 @@ class LocustManager:
         logger.info("=" * 60)
         
         logger.info(f"\n📊 Overall Results:")
-        logger.info(f"  Total Produced:  {metrics.get('total_produced', 0):,}")
-        logger.info(f"  Total Processed: {metrics.get('total_docs', 0):,}")
-        logger.info(f"  Success:         {metrics.get('total_success', 0):,}")
-        logger.info(f"  Failed:          {metrics.get('total_fail', 0):,}")
-        logger.info(f"  Success Rate:    {metrics.get('success_rate', 0):.2%}")
+        logger.info(f"   Total Produced:  {metrics.get('total_produced', 0):,}")
+        logger.info(f"   Total Processed: {metrics.get('total_docs', 0):,}")
+        logger.info(f"   Success:         {metrics.get('total_success', 0):,}")
+        logger.info(f"   Failed:          {metrics.get('total_fail', 0):,}")
+        logger.info(f"   Success Rate:    {metrics.get('success_rate', 0):.2%}")
         
         logger.info(f"\n⚡ Performance:")
-        logger.info(f"  Throughput:      {metrics.get('throughput', 0):,.2f} docs/sec")
-        logger.info(f"  Total Requests:  {metrics.get('total_requests', 0):,}")
-        logger.info(f"  Total Retries:   {metrics.get('total_retries', 0):,}")
+        logger.info(f"   Throughput:      {metrics.get('throughput', 0):,.2f} docs/sec")
+        logger.info(f"   Total Requests:  {metrics.get('total_requests', 0):,}")
+        logger.info(f"   Total Retries:   {metrics.get('total_retries', 0):,}")
         
-        logger.info(f"\n⏱️  Latency (ms):")
-        logger.info(f"  Average:         {metrics.get('avg_latency_ms', 0):.2f}")
-        logger.info(f"  P50:             {metrics.get('p50_latency_ms', 0):.2f}")
-        logger.info(f"  P95:             {metrics.get('p95_latency_ms', 0):.2f}")
-        logger.info(f"  P99:             {metrics.get('p99_latency_ms', 0):.2f}")
+        logger.info(f"\n⏱️ Latency (ms):")
+        logger.info(f"   Average:         {metrics.get('avg_latency_ms', 0):.2f}")
+        logger.info(f"   P50:             {metrics.get('p50_latency_ms', 0):.2f}")
+        logger.info(f"   P95:             {metrics.get('p95_latency_ms', 0):.2f}")
+        logger.info(f"   P99:             {metrics.get('p99_latency_ms', 0):.2f}")
         
         per_worker = metrics.get('per_worker', [])
         if per_worker:
             logger.info(f"\n👷 Per Worker ({len(per_worker)} workers):")
             for w in per_worker:
-                logger.info(f"  Worker {w['runner_id']}: "
+                logger.info(f"   Worker {w['runner_id']}: "
                       f"{w['success_count']:,} success, "
                       f"{w['fail_count']:,} fail, "
                       f"{w['throughput']:.2f} docs/sec, "
