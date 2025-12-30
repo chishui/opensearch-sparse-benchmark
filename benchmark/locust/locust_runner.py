@@ -31,11 +31,13 @@ class RunnerMetrics:
     errors: List[str] = field(default_factory=list)
     start_time: float = 0
     end_time: float = 0
+    took_times: List[int] = field(default_factory=list)  # OpenSearch query "took" times
 
     def to_dict(self) -> Dict[str, Any]:
         duration = self.end_time - self.start_time if self.end_time > self.start_time else 0
         latencies = sorted(self.latencies) if self.latencies else [0]
-        return {
+        took_times = sorted(self.took_times) if self.took_times else []
+        result = {
             "runner_id": self.runner_id,
             "success_count": self.success_count,
             "fail_count": self.fail_count,
@@ -52,6 +54,13 @@ class RunnerMetrics:
             "p99_latency_ms": latencies[int(len(latencies) * 0.99)] if len(latencies) > 1 else latencies[0] if latencies else 0,
             "error_count": len(self.errors),
         }
+        # Add took metrics only if we have search data
+        if took_times:
+            result["avg_took_ms"] = sum(took_times) / len(took_times)
+            result["p50_took_ms"] = took_times[int(len(took_times) * 0.5)]
+            result["p95_took_ms"] = took_times[int(len(took_times) * 0.95)] if len(took_times) > 1 else took_times[0]
+            result["p99_took_ms"] = took_times[int(len(took_times) * 0.99)] if len(took_times) > 1 else took_times[0]
+        return result
 
 
 def _extract_failed_docs(bulk_body: str, response: Dict) -> tuple[Optional[str], int]:
@@ -163,6 +172,9 @@ def _execute_search(
         metrics.request_count += 1
         metrics.total_docs += 1
         metrics.success_count += 1
+        # Capture the "took" time from OpenSearch response
+        if response and 'took' in response:
+            metrics.took_times.append(response['took'])
         return response
 
     except OpenSearchException as e:
@@ -364,7 +376,7 @@ class LocustRunner:
         # Calculate overall throughput
         total_throughput = sum(m['throughput'] for m in worker_metrics)
 
-        return {
+        result = {
             "total_success": total_success,
             "total_fail": total_fail,
             "total_docs": total_docs,
@@ -380,6 +392,22 @@ class LocustRunner:
             "worker_count": len(worker_metrics),
             "per_worker": worker_metrics
         }
+
+        # Aggregate took times for search operations
+        all_took_times = []
+        for m in worker_metrics:
+            if 'avg_took_ms' in m:
+                # Reconstruct took times from averages (approximate)
+                all_took_times.extend([m['avg_took_ms']] * m['request_count'])
+
+        if all_took_times:
+            all_took_times = sorted(all_took_times)
+            result["avg_took_ms"] = sum(all_took_times) / len(all_took_times)
+            result["p50_took_ms"] = all_took_times[int(len(all_took_times) * 0.5)]
+            result["p95_took_ms"] = all_took_times[int(len(all_took_times) * 0.95)] if len(all_took_times) > 1 else all_took_times[0]
+            result["p99_took_ms"] = all_took_times[int(len(all_took_times) * 0.99)] if len(all_took_times) > 1 else all_took_times[0]
+
+        return result
 
     @property
     def user_count(self) -> int:

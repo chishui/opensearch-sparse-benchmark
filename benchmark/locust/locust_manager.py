@@ -286,6 +286,14 @@ class LocustManager:
         logger.info(f"   P50:             {metrics.get('p50_latency_ms', 0):.2f}")
         logger.info(f"   P95:             {metrics.get('p95_latency_ms', 0):.2f}")
         logger.info(f"   P99:             {metrics.get('p99_latency_ms', 0):.2f}")
+
+        # Print "took" metrics only for search operations
+        if 'avg_took_ms' in metrics:
+            logger.info(f"\n🔍 OpenSearch Query Time - took (ms):")
+            logger.info(f"   Average:         {metrics.get('avg_took_ms', 0):.2f}")
+            logger.info(f"   P50:             {metrics.get('p50_took_ms', 0):.2f}")
+            logger.info(f"   P95:             {metrics.get('p95_took_ms', 0):.2f}")
+            logger.info(f"   P99:             {metrics.get('p99_took_ms', 0):.2f}")
         
         per_worker = metrics.get('per_worker', [])
         if per_worker:
