@@ -15,7 +15,7 @@ def create_console_logger():
     if log.handlers:
         log.handlers.clear()
 
-    rich_handler = RichHandler(rich_tracebacks=True, markup=True)
+    rich_handler = RichHandler(rich_tracebacks=True, markup=True, show_path=False)
     rich_handler.setFormatter(logging.Formatter('%(message)s'))
     log.addHandler(rich_handler)
 

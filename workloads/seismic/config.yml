@@ -1,0 +1,21 @@
+parameters:
+  index: test-index
+  total_count: 138364198
+  bulk_size: 1000
+  clients: 8
+tasks:
+  - name: create-index
+    payload: index.json
+    delete: true
+  - name: update-settings
+    type: request
+    method: PUT
+    url: /_cluster/settings
+    payload: setting.json
+  - name: ingest
+    script: generator.py
+    sleep: 3600
+  - name: search
+    script: search_generator.py
+    parameters: 
+      total_count: 6980

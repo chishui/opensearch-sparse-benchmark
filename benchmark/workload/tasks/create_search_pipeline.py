@@ -12,13 +12,6 @@ class CreateSearchPipelineTask(Task):
         if not pipeline_name:
             raise ValueError("'search-pipeline' parameter is required")
         
-        if self.config.get('delete', False):
-            logger.info(f"Deleting existing search pipeline: {pipeline_name}")
-            try:
-                client.http.delete(f"/_search/pipeline/{pipeline_name}")
-            except Exception as e:
-                logger.warning(f"Failed to delete search pipeline (may not exist): {e}")
-        
         body = self._load_payload()
         logger.info(f"Creating search pipeline: {pipeline_name}")
         return client.http.put(f"/_search/pipeline/{pipeline_name}", body=body)

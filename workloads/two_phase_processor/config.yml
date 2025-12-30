@@ -1,0 +1,29 @@
+parameters:
+  index: test-index
+  total_count: 138364198
+  bulk_size: 1000
+  clients: 8
+  search-pipeline: search-pipeline
+tasks:
+  - name: create-index
+    payload: index.json
+    delete: true
+  - name: create-search-pipeline
+    payload: search-pipeline.json
+  - name: ingest
+    script: generator.py
+    sleep: 3600
+  - name: search
+    script: search_generator.py
+    parameters: 
+      total_count: 6980
+  - name: update-settings
+    type: request
+    method: PUT
+    url: /{{index}}/_settings
+    payload: setting.json
+    sleep: 10
+  - name: search
+    script: search_generator.py
+    parameters: 
+      total_count: 6980

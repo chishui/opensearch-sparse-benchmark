@@ -2,6 +2,7 @@
 
 import re
 import json
+import time
 import yaml
 import importlib.util
 from pathlib import Path
@@ -86,21 +87,32 @@ class Workload:
 
             logger.info(f"[{i}/{len(self.tasks)}] Executing task: {task.name}")
             try:
+                start_time = time.time()
                 result = task.execute()
+                execution_time = time.time() - start_time
                 results.append({
                     'task': task.name,
                     'status': 'success',
-                    'result': result
+                    'result': result,
+                    'execution_time': execution_time
                 })
-                logger.info(f"Task '{task.name}' completed successfully")
+                logger.info(f"Task '{task.name}' completed successfully in {execution_time:.2f}s")
+                
+                # Sleep after task completion if specified
+                sleep_seconds = task.config.get('sleep')
+                if sleep_seconds:
+                    logger.info(f"Sleeping for {sleep_seconds} seconds after task '{task.name}'")
+                    time.sleep(sleep_seconds)
             except Exception as e:
                 import traceback
-                logger.error(f"Task '{task.name}' failed")
+                execution_time = time.time() - start_time
+                logger.error(f"Task '{task.name}' failed after {execution_time:.2f}s")
                 traceback.print_exc()
                 results.append({
                     'task': task.name,
                     'status': 'failed',
-                    'error': str(e)
+                    'error': str(e),
+                    'execution_time': execution_time
                 })
                 # Optionally stop on first failure
                 if self.config.get('stop_on_failure', True):
