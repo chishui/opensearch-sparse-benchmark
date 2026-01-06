@@ -67,8 +67,23 @@ class Task:
 
         return module.doc_generator
 
-    def execute(self) -> Any:
-        """Execute the task. Override in subclasses for specific task types."""
+    def execute(self, results: List[Dict[str, Any]] = None) -> Any:
+        """Execute the task. Override in subclasses for specific task types.
+        
+        Args:
+            results: List of results from previously executed tasks
+        """
         raise NotImplementedError(f"Task type '{self.name}' not implemented")
+
+    def print_report(self, metrics: Dict[str, Any]) -> None:
+        """Print a report of task execution metrics.
+        
+        Override in subclasses to provide task-specific reporting.
+        Default implementation does nothing.
+        
+        Args:
+            metrics: Dictionary containing execution metrics
+        """
+        pass
 
 

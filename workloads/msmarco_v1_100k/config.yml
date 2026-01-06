@@ -22,3 +22,6 @@ tasks:
     script: search_generator.py
     parameters: 
       total_count: 6980
+  - name: recall
+    truth_file: /Users/xiliyun/projects/opensearch-sparse-benchmark/data/brutal_array.txt
+    size: 10

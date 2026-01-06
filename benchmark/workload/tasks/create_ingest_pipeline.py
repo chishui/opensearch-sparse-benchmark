@@ -7,7 +7,7 @@ from benchmark.basic import client
 class CreateIngestPipelineTask(Task):
     """Task to create an ingest pipeline."""
     
-    def execute(self) -> Any:
+    def execute(self, results: list = None) -> Any:
         pipeline_name = self.parameters.get('ingest-pipeline')
         if not pipeline_name:
             raise ValueError("'ingest-pipeline' parameter is required")

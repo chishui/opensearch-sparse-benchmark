@@ -38,9 +38,11 @@ def run(workload: str, workload_parameters: dict, skip_tasks: tuple):
         logger.error(f"Workload path not found: {workload_path}")
         return
 
-    # Parse the workload configuration with runtime parameters
-    wl = Workload(workload_path)
-    wl.parse(runtime_params=workload_parameters)
+    # Create workload with runtime parameters (global_params ready immediately)
+    wl = Workload(workload_path, runtime_params=workload_parameters)
+    
+    # Parse tasks
+    wl.parse()
 
     # global parameters are updated
     ingest_manager = LocustManager(wl.global_params, tag="ingest")

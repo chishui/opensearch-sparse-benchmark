@@ -18,7 +18,7 @@ class RequestTask(Task):
           payload: settings.json  # optional, for request body
     """
     
-    def execute(self) -> Any:
+    def execute(self, results: list = None) -> Any:
         method = self.config.get('method', 'GET').upper()
         url = self.config.get('url')
         
@@ -31,7 +31,7 @@ class RequestTask(Task):
         # Load payload if specified
         body = self._load_payload()
         
-        logger.info(f"Executing {method} {url}")
+        logger.info(f"Executing {method} {url}, with payload {body}")
         
         # Use the low-level transport to make the request
         response = client.transport.perform_request(

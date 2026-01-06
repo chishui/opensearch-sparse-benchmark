@@ -8,7 +8,7 @@ from benchmark.basic.index import Index
 class CreateIndexTask(Task):
     """Task to create an OpenSearch index."""
     
-    def execute(self) -> Any:
+    def execute(self, results: list = None) -> Any:
         index_name = self.parameters.get('index')
         if not index_name:
             raise ValueError("'index' parameter is required for create-index task")

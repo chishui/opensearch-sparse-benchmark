@@ -1,47 +1,51 @@
+"""Search task for executing search queries against OpenSearch."""
 
-from benchmark.workload.task import Task
-from typing import Any
+from typing import Any, Dict
+from benchmark.workload.tasks.runner_task import RunnerTask
 from benchmark.basic.my_logger import logger
-from benchmark.basic import client
 
 
-class SearchTask(Task):
-    """Task to search."""
-    
-    def execute(self) -> Any:
+class SearchTask(RunnerTask):
+    """Task to execute search queries."""
+
+    def execute(self, results: list = None) -> Any:
         index_name = self.parameters.get('index')
         if not index_name:
-            raise ValueError("'index' parameter is required for ingest task")
-        
+            raise ValueError("'index' parameter is required for search task")
+
         doc_generator = self._load_script()
         if not doc_generator:
-            raise ValueError("couldn't find doc_generator function from python script")
-        
-        doc_count = 0
-        bulk_body = []
-        
-        logger.info(f"Starting search index: {index_name}")
-        runner = self.parameters.get('runner')
-        if not runner:
-            raise ValueError("must set runner in global params to run ingest")
+            raise ValueError(
+                "couldn't find doc_generator function from python script"
+            )
+
+        logger.info("Starting search on index: %s", index_name)
+        if not self.runner:
+            raise ValueError("must set runner in global params to run search")
 
         clients = self.parameters.get('clients')
         if not clients:
             clients = 4
-            print(f"use default client size: {clients}, set `clients` parameter in command to customize")
+            print(
+                f"use default client size: {clients}, "
+                "set `clients` parameter in command to customize"
+            )
         else:
             clients = int(clients)
 
         total_count = self.parameters.get('total_count')
+        doc_generator_kwargs = {}
         if total_count:
             total_count = int(total_count)
+            doc_generator_kwargs = {"total_count": total_count}
 
-        metrics = runner.run(
-            data_generator=doc_generator(),
-            user_count=clients,        # number of concurrent Locust users
-            spawn_rate=1,        # users spawned per second
+        metrics = self.runner.run(
+            data_generator=doc_generator(**doc_generator_kwargs),
+            user_count=clients,
+            spawn_rate=1,
             wait_for_completion=True,
             total_count=total_count
         )
-        runner.print_report(metrics)
+        self.print_report(metrics)
         return metrics
+

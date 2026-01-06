@@ -8,7 +8,6 @@ import signal
 import threading
 from multiprocessing import Queue
 from typing import Iterator, Tuple, Any
-from benchmark.basic.my_logger import logger
 from benchmark.locust.locust_runner import LocustRunner
 
 
@@ -48,6 +47,7 @@ class LocustManager:
         self._is_producing = False
         self._stop_requested = False
         self.runner: LocustRunner = None
+        self._progress_start_time = None
 
         # Store original signal handler
         self._original_sigint = None
@@ -74,16 +74,45 @@ class LocustManager:
         signal.signal(signal.SIGINT, self._original_sigint)
 
     def _print_progress(self, current: int, total: int):
-        """Print progress bar to terminal."""
+        """Print progress bar with ETA to terminal."""
+        if self._progress_start_time is None:
+            self._progress_start_time = time.time()
+        
         percent = current / total * 100
         bar_length = 40
         filled = int(bar_length * current / total)
         bar = '█' * filled + '░' * (bar_length - filled)
-        print(f'\rProgress: [{bar}] {percent:.1f}% ({current}/{total})', end='', flush=True)
+        
+        # Calculate ETA
+        elapsed_time = time.time() - self._progress_start_time
+        if current > 0 and elapsed_time > 0:
+            rate = current / elapsed_time
+            remaining = total - current
+            eta_seconds = remaining / rate if rate > 0 else 0
+            
+            # Format ETA
+            if eta_seconds < 60:
+                eta_str = f"{eta_seconds:.0f}s"
+            elif eta_seconds < 3600:
+                minutes = int(eta_seconds // 60)
+                seconds = int(eta_seconds % 60)
+                eta_str = f"{minutes}m{seconds:02d}s"
+            else:
+                hours = int(eta_seconds // 3600)
+                minutes = int((eta_seconds % 3600) // 60)
+                eta_str = f"{hours}h{minutes:02d}m"
+        else:
+            eta_str = "calculating..."
+        
+        print(f'\rProgress: [{bar}] {percent:.1f}% ({current}/{total}) ETA: {eta_str}', end='', flush=True)
 
     def _produce_batch(self, data_generator: Iterator[Tuple[Any, dict]], block: bool = True, total_count: int = None):
         batch = []
         show_progress = total_count is not None and total_count > 0
+        
+        # Reset progress tracking for new run
+        if show_progress:
+            self._progress_start_time = None
 
         for doc_id, doc_body in data_generator:
             if self._stop_requested:
@@ -128,6 +157,10 @@ class LocustManager:
 
     def _produce_single(self, data_generator: Iterator[Tuple[Any, dict]], block: bool = True, total_count: int = None):
         show_progress = total_count is not None and total_count > 0
+        
+        # Reset progress tracking for new run
+        if show_progress:
+            self._progress_start_time = None
 
         for doc_id, doc_body in data_generator:
             if self._stop_requested:
@@ -188,9 +221,20 @@ class LocustManager:
         Returns:
             Metrics dictionary with success/fail counts
         """
+        # Reset state for new run
+        self._total_produced = 0
+        self._stop_requested = False
+        self._is_producing = False
+        
+        # Clear any leftover items in the queue from previous runs
+        while not self.queue.empty():
+            try:
+                self.queue.get_nowait()
+            except Exception:
+                break
+
         # Setup signal handler for Ctrl+C
         self._original_sigint = signal.signal(signal.SIGINT, self._handle_sigint)
-        self._stop_requested = False
 
         try:
             # Create and start runner with worker processes
@@ -262,47 +306,4 @@ class LocustManager:
     def queue_size_current(self) -> int:
         return self.queue.qsize()
 
-    @staticmethod
-    def print_report(metrics: dict):
-        """Print a detailed metrics report."""
-        logger.info("\n" + "=" * 60)
-        logger.info("LOAD TEST REPORT")
-        logger.info("=" * 60)
-        
-        logger.info(f"\n📊 Overall Results:")
-        logger.info(f"   Total Produced:  {metrics.get('total_produced', 0):,}")
-        logger.info(f"   Total Processed: {metrics.get('total_docs', 0):,}")
-        logger.info(f"   Success:         {metrics.get('total_success', 0):,}")
-        logger.info(f"   Failed:          {metrics.get('total_fail', 0):,}")
-        logger.info(f"   Success Rate:    {metrics.get('success_rate', 0):.2%}")
-        
-        logger.info(f"\n⚡ Performance:")
-        logger.info(f"   Throughput:      {metrics.get('throughput', 0):,.2f} docs/sec")
-        logger.info(f"   Total Requests:  {metrics.get('total_requests', 0):,}")
-        logger.info(f"   Total Retries:   {metrics.get('total_retries', 0):,}")
-        
-        logger.info(f"\n⏱️ Latency (ms):")
-        logger.info(f"   Average:         {metrics.get('avg_latency_ms', 0):.2f}")
-        logger.info(f"   P50:             {metrics.get('p50_latency_ms', 0):.2f}")
-        logger.info(f"   P95:             {metrics.get('p95_latency_ms', 0):.2f}")
-        logger.info(f"   P99:             {metrics.get('p99_latency_ms', 0):.2f}")
 
-        # Print "took" metrics only for search operations
-        if 'avg_took_ms' in metrics:
-            logger.info(f"\n🔍 OpenSearch Query Time - took (ms):")
-            logger.info(f"   Average:         {metrics.get('avg_took_ms', 0):.2f}")
-            logger.info(f"   P50:             {metrics.get('p50_took_ms', 0):.2f}")
-            logger.info(f"   P95:             {metrics.get('p95_took_ms', 0):.2f}")
-            logger.info(f"   P99:             {metrics.get('p99_took_ms', 0):.2f}")
-        
-        per_worker = metrics.get('per_worker', [])
-        if per_worker:
-            logger.info(f"\n👷 Per Worker ({len(per_worker)} workers):")
-            for w in per_worker:
-                logger.info(f"   Worker {w['runner_id']}: "
-                      f"{w['success_count']:,} success, "
-                      f"{w['fail_count']:,} fail, "
-                      f"{w['throughput']:.2f} docs/sec, "
-                      f"avg {w['avg_latency_ms']:.2f}ms")
-        
-        logger.info("\n" + "=" * 60)

@@ -7,7 +7,7 @@ from benchmark.basic import client
 class CreateSearchPipelineTask(Task):
     """Task to create a search pipeline."""
     
-    def execute(self) -> Any:
+    def execute(self, results: list = None) -> Any:
         pipeline_name = self.parameters.get('search-pipeline')
         if not pipeline_name:
             raise ValueError("'search-pipeline' parameter is required")

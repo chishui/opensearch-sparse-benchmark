@@ -17,25 +17,24 @@ from benchmark.basic.my_logger import logger
 class Workload:
     """Parses and executes OpenSearch benchmark workloads."""
     
-    def __init__(self, workload_path: str):
+    def __init__(self, workload_path: str, runtime_params: Dict[str, Any] = None):
         self.workload_path = Path(workload_path)
         self.config_path = self.workload_path / 'config.yml'
         self.config: Dict[str, Any] = {}
         self.tasks: List[Task] = []
         self.global_params: Dict[str, Any] = {}
         self.runner = None
+        
+        # Load config and setup global_params immediately
+        self._load_config_and_setup_global_params(runtime_params)
     
     def bind_runner(self, runner, name):
         for task in self.tasks:
             if task.name == name:
                 task.parameters['runner'] = runner
 
-    def parse(self, runtime_params: Dict[str, Any] = None) -> 'Workload':
-        """Parse the config.yml and generate task list.
-        
-        Args:
-            runtime_params: Optional runtime parameters that override global parameters
-        """
+    def _load_config_and_setup_global_params(self, runtime_params: Dict[str, Any] = None):
+        """Load config file and setup global parameters with runtime overrides."""
         if not self.config_path.exists():
             raise FileNotFoundError(f"Config file not found: {self.config_path}")
 
@@ -46,8 +45,13 @@ class Workload:
         self.global_params = self.config.get('parameters', {}) or {}
         if runtime_params:
             self.global_params.update(runtime_params)
+
+    def parse(self) -> 'Workload':
+        """Parse the config.yml and generate task list.
         
-        # Parse tasks
+        Note: global_params are already set up in constructor.
+        """
+        # Parse tasks using the already configured global_params
         task_configs = self.config.get('tasks', [])
         for task_config in task_configs:
             task_name = task_config.get('name')
@@ -88,7 +92,7 @@ class Workload:
             logger.info(f"[{i}/{len(self.tasks)}] Executing task: {task.name}")
             try:
                 start_time = time.time()
-                result = task.execute()
+                result = task.execute(results)
                 execution_time = time.time() - start_time
                 results.append({
                     'task': task.name,

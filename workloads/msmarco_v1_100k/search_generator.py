@@ -57,10 +57,11 @@ payload = """
 }
 """
 
-def doc_generator():
+def doc_generator(**kwargs):
     global payload
     X = read_sparse_matrix(file_path)
-    size = X.shape[0]
+    size = kwargs.get('total_count', X.shape[0])
+    size = min(size, X.shape[0])
     for i in range(0, size):
         vec = sparse_vector_to_json(X[i % X.shape[0]])
         payload = payload.replace("{{embedding}}", vec)
