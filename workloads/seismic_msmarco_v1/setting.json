@@ -1,0 +1,9 @@
+{
+    "transient" : {
+        "plugins.neural_search.sparse.algo_param.index_thread_qty" : 8
+    },
+    "persistent": {
+        "plugins.neural_search.circuit_breaker.limit": "100%",
+        "plugins.neural_search.stats_enabled": true
+    }     
+}

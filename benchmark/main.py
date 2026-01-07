@@ -44,13 +44,6 @@ def run(workload: str, workload_parameters: dict, skip_tasks: tuple):
     # Parse tasks
     wl.parse()
 
-    # global parameters are updated
-    ingest_manager = LocustManager(wl.global_params, tag="ingest")
-    wl.bind_runner(ingest_manager, 'ingest')
-
-    search_manager = LocustManager(wl.global_params, tag="search")
-    wl.bind_runner(search_manager, 'search')
-
     # Execute all tasks
     results = wl.run(skip_tasks=set(skip_tasks))
 

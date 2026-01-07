@@ -6,9 +6,10 @@ import json
 import time
 import signal
 import threading
-from multiprocessing import Queue
+from multiprocessing import Manager
 from typing import Iterator, Tuple, Any
 from benchmark.locust.locust_runner import LocustRunner
+from benchmark.workload.tasks.runner_type import RunnerType
 
 
 class LocustManager:
@@ -25,7 +26,7 @@ class LocustManager:
         queue_size: int = 100,
         bulk_size: int = 100,
         max_retries: int = 3,
-        tag: str = ""
+        runner_type: RunnerType = RunnerType.UNKNOWN
     ):
         """
         Initialize LocustManager.
@@ -37,12 +38,11 @@ class LocustManager:
             max_retries: Maximum retry attempts for failed docs (default, can be overridden by global_params)
         """
         params = global_params or {}
-
         self.index_name = params.get('index')
         self.queue_size = int(params.get('queue_size', queue_size))
         self.bulk_size = int(params.get('bulk_size', bulk_size))
         self.max_retries = int(params.get('max_retries', max_retries))
-        self.queue: Queue = Queue(maxsize=self.queue_size)
+        self.queue = Manager().Queue(maxsize=self.queue_size)
         self._total_produced = 0
         self._is_producing = False
         self._stop_requested = False
@@ -51,8 +51,11 @@ class LocustManager:
 
         # Store original signal handler
         self._original_sigint = None
-        self.tag = tag
+        self.runner_type = runner_type
         print(f"LocustManager - queue_size: {self.queue_size}, bulk_size: {self.bulk_size}, max retry: {self.max_retries}")
+
+    def set_runner_type(self, runner_type):
+        self.runner_type = runner_type
 
     def _create_bulk_body(self, docs: list[Tuple[Any, dict]]) -> str:
         """Create NDJSON bulk request body from documents."""
@@ -169,7 +172,8 @@ class LocustManager:
             payload = {
                 'body': doc_body,
                 'doc_count': 1,
-                'retry_count': 0
+                'retry_count': 0,
+                'doc_id': doc_id
             }
 
             self.queue.put(payload)
@@ -192,10 +196,12 @@ class LocustManager:
             total_count: Total number of documents (for progress bar). If None, no progress bar.
         """
         self._is_producing = True
-        if self.tag == "ingest":
+        if self.runner_type == RunnerType.INGEST:
             self._produce_batch(data_generator, block, total_count)
-        elif self.tag == "search":
+        elif self.runner_type == RunnerType.SEARCH or self.runner_type == RunnerType.SEARCH_WITH_RECALL:
             self._produce_single(data_generator, block, total_count)
+        else:
+            print("RunnerType is not set")
         self._is_producing = False
 
     def run(
@@ -243,7 +249,7 @@ class LocustManager:
                 index_name=self.index_name,
                 max_retries=self.max_retries,
                 num_workers=user_count,
-                tag=self.tag
+                runner_type=self.runner_type
             )
             self.runner.start()
 

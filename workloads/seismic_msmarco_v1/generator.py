@@ -2,7 +2,7 @@ import json
 from scipy.sparse import csr_matrix, vstack
 import numpy as np
 
-file_path = '/home/ubuntu/data/queries.dev.csr'
+file_path = '/home/ubuntu/data/base_full.csr'
 
 def read_sparse_matrix_fields(fname):
     """read the fields of a CSR matrix without instanciating it"""
@@ -36,33 +36,12 @@ def sparse_vector_to_json(csr_matrix, row_idx=0):
     result = {str(int(idx)): float(val) for idx, val in zip(indices, data)}
     
     # Convert to JSON
-    return json.dumps(result)
-
-template = """
-{
-    "_source": false,
-    "query": {
-        "neural_sparse": {
-            "passage_embedding": {
-                "query_tokens": {{embedding}},
-                "method_parameters": {
-                    "top_n": 3,
-                    "heap_factor": 1.2,
-                    "k": 10
-                }
-            }
-        }
-    },
-    "size": 10
-}
-"""
+    return result
 
 def doc_generator(**kwargs):
-    global template
     X = read_sparse_matrix(file_path)
-    size = kwargs.get('total_count', X.shape[0])
-    size = min(size, X.shape[0])
+    size = X.shape[0]
     for i in range(0, size):
         vec = sparse_vector_to_json(X[i % X.shape[0]])
-        payload = template.replace("{{embedding}}", vec)
-        yield (i, payload)
+        doc = {"passage_embedding": vec}
+        yield (i, doc)

@@ -1,6 +1,6 @@
 parameters:
   index: test-index
-  total_count: 100000
+  total_count: 138364198
   bulk_size: 1000
   clients: 8
 tasks:
@@ -14,6 +14,9 @@ tasks:
     payload: setting.json
   - name: ingest
     script: generator.py
+    parameters: 
+      total_count: 50000000
+    sleep: 10
   - name: forcemerge
     type: request
     method: POST
@@ -22,6 +25,4 @@ tasks:
     script: search_generator.py
     parameters: 
       total_count: 6980
-    recall:
-      truth_file: /Users/xiliyun/projects/opensearch-sparse-benchmark/data/brutal_array.txt
-      size: 10
+      clients: 1

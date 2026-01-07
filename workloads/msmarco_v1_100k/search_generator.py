@@ -38,7 +38,7 @@ def sparse_vector_to_json(csr_matrix, row_idx=0):
     # Convert to JSON
     return json.dumps(result)
 
-payload = """
+template = """
 {
     "_source": false,
     "query": {
@@ -58,11 +58,11 @@ payload = """
 """
 
 def doc_generator(**kwargs):
-    global payload
+    global template
     X = read_sparse_matrix(file_path)
     size = kwargs.get('total_count', X.shape[0])
     size = min(size, X.shape[0])
     for i in range(0, size):
         vec = sparse_vector_to_json(X[i % X.shape[0]])
-        payload = payload.replace("{{embedding}}", vec)
+        payload = template.replace("{{embedding}}", vec)
         yield (i, payload)

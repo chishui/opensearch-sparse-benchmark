@@ -3,12 +3,16 @@ from pathlib import Path
 from benchmark.workload.task import Task
 from benchmark.locust.locust_manager import LocustManager
 from benchmark.basic.my_logger import logger
+from benchmark.workload.tasks.runner_type import RunnerType
 
 
 class RunnerTask(Task):
     def __init__(self, name: str, config: Dict[str, Any], global_params: Dict[str, Any], workload_dir: Path):
         super().__init__(name, config, global_params, workload_dir)
-        self.runner = LocustManager(global_params, tag=name)
+        self.runner = LocustManager(global_params, runner_type=self.get_runner_type())
+        
+    def get_runner_type(self) -> RunnerType:
+        return RunnerType.UNKNOWN
 
     def print_report(self, metrics: Dict[str, Any]) -> None:
         """Print task metrics report with query timing."""

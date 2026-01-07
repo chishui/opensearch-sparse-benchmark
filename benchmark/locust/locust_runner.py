@@ -4,18 +4,16 @@ and makes bulk requests to OpenSearch with retry logic.
 Uses true multiprocessing for parallel execution.
 """
 import time
-import os
+import pickle
 from dataclasses import dataclass, field
-from multiprocessing import Process, Queue, Value
+from multiprocessing import Process, Manager, Queue, Value, Manager
 from queue import Empty
 from ctypes import c_bool, c_int
 from typing import Dict, Any, Optional, List
-from opensearchpy import OpenSearch, RequestsHttpConnection
 from opensearchpy.exceptions import OpenSearchException
-from requests_aws4auth import AWS4Auth
-from dotenv import load_dotenv
 from benchmark.basic import client
-from benchmark.basic.my_logger import logger, file_logger
+from benchmark.basic.my_logger import file_logger
+from benchmark.workload.tasks.runner_type import RunnerType
 
 
 @dataclass
@@ -32,8 +30,11 @@ class RunnerMetrics:
     start_time: float = 0
     end_time: float = 0
     took_times: List[int] = field(default_factory=list)  # OpenSearch query "took" times
+    search_ids: Dict[str, List[str]] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
+        """Convert metrics to dictionary.
+        """
         duration = self.end_time - self.start_time if self.end_time > self.start_time else 0
         latencies = sorted(self.latencies) if self.latencies else [0]
         took_times = sorted(self.took_times) if self.took_times else []
@@ -60,6 +61,9 @@ class RunnerMetrics:
             result["p50_took_ms"] = took_times[int(len(took_times) * 0.5)]
             result["p95_took_ms"] = took_times[int(len(took_times) * 0.95)] if len(took_times) > 1 else took_times[0]
             result["p99_took_ms"] = took_times[int(len(took_times) * 0.99)] if len(took_times) > 1 else took_times[0]
+        # Only include search_ids if explicitly requested (for backward compatibility)
+        if self.search_ids:
+            result["search_ids"] = self.search_ids
         return result
 
 
@@ -156,7 +160,9 @@ def _execute_search(
     runner_id: int,
     index_name: str,
     query_body: str,
-    metrics: RunnerMetrics
+    metrics: RunnerMetrics,
+    with_recall: bool,
+    doc_id: str
 ):
     """
     Execute a single search request with retry logic.
@@ -175,6 +181,14 @@ def _execute_search(
         # Capture the "took" time from OpenSearch response
         if response and 'took' in response:
             metrics.took_times.append(response['took'])
+
+        if with_recall and response and 'hits' in response and 'hits' in response['hits']:
+            results = response['hits']['hits']
+            ids = []
+            for result in results:
+                if '_id' in result:
+                    ids.append(int(result['_id']))
+            metrics.search_ids[doc_id] = ids
         return response
 
     except OpenSearchException as e:
@@ -195,7 +209,7 @@ def _worker_process(
     max_retries: int,
     stop_signal: Value,
     ready_signal: Value,
-    tag: str
+    runner_type: RunnerType
 ):
     """
     Worker process that consumes bulk payloads and sends to OpenSearch.
@@ -220,8 +234,9 @@ def _worker_process(
 
         bulk_body = payload.get('body', '')
         doc_count = payload.get('doc_count', 0)
+        doc_id = payload.get('doc_id', 0)
 
-        if tag == 'ingest':
+        if runner_type == RunnerType.INGEST:
             # Handle retries locally - no re-queuing
             _execute_bulk_with_retry(
                 runner_id=runner_id,
@@ -231,12 +246,23 @@ def _worker_process(
                 max_retries=max_retries,
                 metrics=metrics
             )
-        elif tag == 'search':
+        elif runner_type == RunnerType.SEARCH:
             response = _execute_search(
                 runner_id=runner_id,
                 index_name=index_name,
                 query_body=bulk_body,
-                metrics=metrics
+                metrics=metrics,
+                with_recall=False,
+                doc_id=doc_id
+            )
+        elif runner_type == RunnerType.SEARCH_WITH_RECALL:
+            response = _execute_search(
+                runner_id=runner_id,
+                index_name=index_name,
+                query_body=bulk_body,
+                metrics=metrics,
+                with_recall=True,
+                doc_id=doc_id
             )
 
 
@@ -258,7 +284,7 @@ class LocustRunner:
         index_name: str = "test_index",
         max_retries: int = 3,
         num_workers: int = 4,
-        tag: str = 'ingest'
+        runner_type: RunnerType = RunnerType.UNKNOWN
     ):
         self.payload_queue = payload_queue
         self.index_name = index_name
@@ -266,11 +292,11 @@ class LocustRunner:
         self.num_workers = num_workers
 
         # Queue for receiving aggregated metrics from workers
-        self.metrics_queue = Queue()
+        self.metrics_queue = Manager().Queue()
         self.stop_signal = Value(c_bool, False)
         self.ready_count = Value(c_int, 0)
         self.workers: list[Process] = []
-        self.tag = tag
+        self.runner_type = runner_type
 
     def start(self):
         """Start all worker processes."""
@@ -285,7 +311,7 @@ class LocustRunner:
                     self.max_retries,
                     self.stop_signal,
                     self.ready_count,
-                    self.tag
+                    self.runner_type
                 )
             )
             p.start()
@@ -334,7 +360,6 @@ class LocustRunner:
             timeout: Time to wait for metrics from each worker
         """
         worker_metrics = []
-
         # Wait for metrics from all workers
         expected_workers = self.num_workers
         deadline = time.time() + timeout
@@ -363,6 +388,10 @@ class LocustRunner:
         total_requests = sum(m['request_count'] for m in worker_metrics)
         total_retries = sum(m['retry_count'] for m in worker_metrics)
         total_errors = sum(m['error_count'] for m in worker_metrics)
+        search_ids = {}
+        for m in worker_metrics:
+            if 'search_ids' in m:
+                search_ids.update(m['search_ids'])
         
         # Aggregate latencies from all workers
         all_latencies = []
@@ -375,7 +404,6 @@ class LocustRunner:
 
         # Calculate overall throughput
         total_throughput = sum(m['throughput'] for m in worker_metrics)
-
         result = {
             "total_success": total_success,
             "total_fail": total_fail,
@@ -390,7 +418,8 @@ class LocustRunner:
             "p95_latency_ms": all_latencies[int(len(all_latencies) * 0.95)] if len(all_latencies) > 1 else all_latencies[0],
             "p99_latency_ms": all_latencies[int(len(all_latencies) * 0.99)] if len(all_latencies) > 1 else all_latencies[0],
             "worker_count": len(worker_metrics),
-            "per_worker": worker_metrics
+            "per_worker": worker_metrics,
+            "search_ids": search_ids
         }
 
         # Aggregate took times for search operations

@@ -1,0 +1,24 @@
+{
+  "settings": {
+      "index": {
+          "sparse": true,
+          "number_of_shards": 1,
+          "number_of_replicas": 0,
+          "translog.flush_threshold_size" : "1024MB",
+          "refresh_interval": "10s"
+      }
+  },
+  "mappings": {
+    "properties": {
+      "passage_embedding":{
+        "type": "sparse_vector",
+        "method": {
+          "name": "seismic",
+          "parameters": {
+            "approximate_threshold": 49900000
+          }
+        }
+      }
+    }
+  }
+}

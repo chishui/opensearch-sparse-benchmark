@@ -3,10 +3,14 @@
 from typing import Any, Dict
 from benchmark.workload.tasks.runner_task import RunnerTask
 from benchmark.basic.my_logger import logger
+from benchmark.workload.tasks.runner_type import RunnerType
 
 
 class IngestTask(RunnerTask):
     """Task to ingest documents into an index."""        
+
+    def get_runner_type(self) -> RunnerType:
+        return RunnerType.INGEST
 
     def execute(self, results: list = None) -> Any:
         index_name = self.parameters.get('index')
